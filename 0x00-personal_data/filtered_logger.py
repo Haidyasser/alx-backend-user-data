@@ -4,9 +4,12 @@ a module that contains a function that filters out
 sensitive information from a log message
 """
 
-from typing import List
+from typing import List, Tuple
 import re
 import logging
+
+
+PII_FIELDS: Tuple[str] = ("name", "email", "phone", "ssn", "password")
 
 
 def filter_datum(fields: List[str], redaction: str,
@@ -37,3 +40,17 @@ class RedactingFormatter(logging.Formatter):
         """ Filters values in incoming log records """
         return filter_datum(self.fields, self.REDACTION,
                             super().format(record), self.SEPARATOR)
+
+
+def get_logger() -> logging.Logger:
+    """ Returns a logging object """
+    logger = logging.getLogger('user_data')
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(RedactingFormatter(PII_FIELDS))
+    logger.addHandler(handler)
+
+    return logger
+
