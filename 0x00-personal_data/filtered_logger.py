@@ -7,6 +7,9 @@ sensitive information from a log message
 from typing import List, Tuple
 import re
 import logging
+import os
+import mysql.connector
+from mysql.connector.connection import MySQLConnection
 
 
 PII_FIELDS: Tuple[str] = ("name", "email", "phone", "ssn", "password")
@@ -53,3 +56,14 @@ def get_logger() -> logging.Logger:
     logger.addHandler(handler)
 
     return logger
+
+
+def get_db() -> MySQLConnection:
+    """ Returns a connector to a database """
+    connector = mysql.connector.connect(
+        user=os.getenv('PERSONAL_DATA_DB_USERNAME', 'root'),
+        password=os.getenv('PERSONAL_DATA_DB_PASSWORD', ''),
+        host=os.getenv('PERSONAL_DATA_DB_HOST', 'localhost'),
+        database=os.getenv('PERSONAL_DATA_DB_NAME')
+    )
+    return connector
