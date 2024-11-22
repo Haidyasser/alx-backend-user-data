@@ -10,6 +10,7 @@ import logging
 import os
 import mysql.connector
 from mysql.connector.connection import MySQLConnection
+import bycrypt
 
 
 PII_FIELDS: Tuple[str] = ("name", "email", "phone", "ssn", "password")
@@ -56,17 +57,6 @@ def get_logger() -> logging.Logger:
     logger.addHandler(handler)
 
     return logger
-
-
-def get_db() -> MySQLConnection:
-    """ Returns a connector to a database """
-    connector = mysql.connector.connect(
-        user=os.getenv('PERSONAL_DATA_DB_USERNAME', 'root'),
-        password=os.getenv('PERSONAL_DATA_DB_PASSWORD', ''),
-        host=os.getenv('PERSONAL_DATA_DB_HOST', 'localhost'),
-        database=os.getenv('PERSONAL_DATA_DB_NAME', '')
-    )
-    return connector
 
 
 def get_db() -> MySQLConnection:
@@ -118,6 +108,23 @@ def main() -> None:
     # Close the database connection
     cursor.close()
     db.close()
+
+
+def hash_password(password: str) -> bytes:
+    """
+    Hashes a password using bcrypt with a salt.
+
+    Args:
+        password (str): The plain text password to hash.
+
+    Returns:
+        bytes: The salted, hashed password as a byte string.
+    """
+    # Generate a salt
+    salt = bcrypt.gensalt()
+    # Hash the password with the salt
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return hashed_password
 
 
 if __name__ == "__main__":
