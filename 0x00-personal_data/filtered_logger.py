@@ -10,7 +10,6 @@ import logging
 import os
 import mysql.connector
 from mysql.connector.connection import MySQLConnection
-import bycrypt
 
 
 PII_FIELDS: Tuple[str] = ("name", "email", "phone", "ssn", "password")
@@ -68,6 +67,30 @@ def get_db() -> MySQLConnection:
         database=os.getenv('PERSONAL_DATA_DB_NAME', '')
     )
     return connector
+
+
+def get_db() -> MySQLConnection:
+    """
+    Returns a connector to the MySQL database using credentials
+    from environment variables.
+    """
+    username = os.getenv("PERSONAL_DATA_DB_USERNAME", "root")
+    password = os.getenv("PERSONAL_DATA_DB_PASSWORD", "")
+    host = os.getenv("PERSONAL_DATA_DB_HOST", "localhost")
+    database = os.getenv("PERSONAL_DATA_DB_NAME")
+
+    if not database:
+        raise ValueError(
+            "The database name must be set in PERSONAL_DATA_DB_NAME")
+
+    connection = mysql.connector.connect(
+        host=host,
+        user=username,
+        password=password,
+        database=database
+    )
+
+    return connection
 
 
 def main() -> None:
