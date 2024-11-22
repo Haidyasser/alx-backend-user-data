@@ -1,27 +1,17 @@
 #!/usr/bin/env python3
-"""
-a module that contains a function that filters out
-sensitive information from a log message
-"""
-
-from typing import List, Tuple
+'''Module for storing the filtered_logger function.'''
 import re
+from typing import List
 import logging
 import os
 import mysql.connector
-from mysql.connector.connection import MySQLConnection
 
 
-PII_FIELDS: Tuple[str] = ("name", "email", "phone", "ssn", "password")
-
-
-def filter_datum(fields: List[str], redaction: str,
-                 message: str, separator: str) -> str:
-    """
-    function that returns the log message obfuscated
-    """
+def filter_datum(fields: List[str],
+                 redaction: str, message: str, separator: str) -> str:
+    '''Returns the log message obfuscated.'''
     for field in fields:
-        message = re.sub(rf'{field}=.+?{separator}',
+        message = re.sub(rf'{field}=.*?{separator}',
                          f'{field}={redaction}{separator}', message)
     return message
 
@@ -34,91 +24,55 @@ class RedactingFormatter(logging.Formatter):
     FORMAT = "[HOLBERTON] %(name)s %(levelname)s %(asctime)-15s: %(message)s"
     SEPARATOR = ";"
 
-    def __init__(self, fields: List[str]):
-        """ Constructor method """
+    def __init__(self, fields: List[str] = []):
         super(RedactingFormatter, self).__init__(self.FORMAT)
-        self.fields = fields
+        self.fields = list(fields)
 
     def format(self, record: logging.LogRecord) -> str:
-        """ Filters values in incoming log records """
+        '''Format values in incoming log records.'''
         return filter_datum(self.fields, self.REDACTION,
                             super().format(record), self.SEPARATOR)
 
 
+PII_FIELDS = ('name', 'email', 'phone', 'ssn', 'password')
+
+
 def get_logger() -> logging.Logger:
-    """ Returns a logging object """
+    '''Returns a logging object.'''
     logger = logging.getLogger('user_data')
     logger.setLevel(logging.INFO)
     logger.propagate = False
-
     handler = logging.StreamHandler()
     handler.setFormatter(RedactingFormatter(PII_FIELDS))
     logger.addHandler(handler)
-
     return logger
 
 
-def get_db() -> MySQLConnection:
-    """ Returns a connector to a database """
-    connector = mysql.connector.connect(
-        user=os.getenv('PERSONAL_DATA_DB_USERNAME', 'root'),
-        password=os.getenv('PERSONAL_DATA_DB_PASSWORD', ''),
-        host=os.getenv('PERSONAL_DATA_DB_HOST', 'localhost'),
-        database=os.getenv('PERSONAL_DATA_DB_NAME', '')
-    )
-    return connector
+def get_db() -> mysql.connector.connection.MySQLConnection:
+    '''Returns a connector to a MySQL database.'''
+    username = os.getenv('PERSONAL_DATA_DB_USERNAME', "root")
+    password = os.getenv('PERSONAL_DATA_DB_PASSWORD', "")
+    host = os.getenv('PERSONAL_DATA_DB_HOST', 'localhost')
+    db_name = os.getenv('PERSONAL_DATA_DB_NAME', "")
 
-
-def get_db() -> MySQLConnection:
-    """
-    Returns a connector to the MySQL database using credentials
-    from environment variables.
-    """
-    username = os.getenv("PERSONAL_DATA_DB_USERNAME", "root")
-    password = os.getenv("PERSONAL_DATA_DB_PASSWORD", "")
-    host = os.getenv("PERSONAL_DATA_DB_HOST", "localhost")
-    database = os.getenv("PERSONAL_DATA_DB_NAME")
-
-    if not database:
-        raise ValueError(
-            "The database name must be set in PERSONAL_DATA_DB_NAME")
-
-    connection = mysql.connector.connect(
-        host=host,
+    return mysql.connector.connect(
         user=username,
         password=password,
-        database=database
+        host=host,
+        database=db_name
     )
 
-    return connection
 
-
-def main() -> None:
-    """
-    Main function that retrieves and logs rows from the users table
-    """
+if __name__ == '__main__':
+    connection = get_db()
+    cursor = connection.cursor()
+    cursor.execute("SELECT * FROM users;")
     logger = get_logger()
-    db = get_db()
-    cursor = db.cursor()
+    fields = [i[0] for i in cursor.description]
 
-    # Fetch all rows from the users table
-    cursor.execute("SELECT * FROM users")
-    rows = cursor.fetchall()
+    for row in cursor:
+        str_row = ''.join(f'{f}={str(r)}; ' for r, f in zip(row, fields))
+        logger.info(str_row.strip())
 
-    # Get column names to format the log
-    column_names = [desc[0] for desc in cursor.description]
-
-    # Process and log each row
-    for row in rows:
-        message = "; ".join(
-            f"{column}={value}" for column, value in zip(column_names, row))
-        + ";"
-        logger.info(message)
-
-    # Close the database connection
     cursor.close()
-    db.close()
-
-
-if __name__ == "__main__":
-    main()
+    connection.close()
