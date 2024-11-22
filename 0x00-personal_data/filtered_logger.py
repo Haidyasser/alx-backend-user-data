@@ -59,15 +59,66 @@ def get_logger() -> logging.Logger:
 
 
 def get_db() -> MySQLConnection:
-    '''Returns a connector to a MySQL database.'''
-    username = os.getenv('PERSONAL_DATA_DB_USERNAME', "root")
-    password = os.getenv('PERSONAL_DATA_DB_PASSWORD', "")
-    host = os.getenv('PERSONAL_DATA_DB_HOST', 'localhost')
-    db_name = os.getenv('PERSONAL_DATA_DB_NAME', "")
+    """ Returns a connector to a database """
+    connector = mysql.connector.connect(
+        user=os.getenv('PERSONAL_DATA_DB_USERNAME', 'root'),
+        password=os.getenv('PERSONAL_DATA_DB_PASSWORD', ''),
+        host=os.getenv('PERSONAL_DATA_DB_HOST', 'localhost'),
+        database=os.getenv('PERSONAL_DATA_DB_NAME', '')
+    )
+    return connector
 
-    return mysql.connector.connect(
+
+def get_db() -> MySQLConnection:
+    """
+    Returns a connector to the MySQL database using credentials
+    from environment variables.
+    """
+    username = os.getenv("PERSONAL_DATA_DB_USERNAME", "root")
+    password = os.getenv("PERSONAL_DATA_DB_PASSWORD", "")
+    host = os.getenv("PERSONAL_DATA_DB_HOST", "localhost")
+    database = os.getenv("PERSONAL_DATA_DB_NAME")
+
+    if not database:
+        raise ValueError(
+            "The database name must be set in PERSONAL_DATA_DB_NAME")
+
+    connection = mysql.connector.connect(
+        host=host,
         user=username,
         password=password,
-        host=host,
-        database=db_name
+        database=database
     )
+
+    return connection
+
+
+def main() -> None:
+    """
+    Main function that retrieves and logs rows from the users table
+    """
+    logger = get_logger()
+    db = get_db()
+    cursor = db.cursor()
+
+    # Fetch all rows from the users table
+    cursor.execute("SELECT * FROM users")
+    rows = cursor.fetchall()
+
+    # Get column names to format the log
+    column_names = [desc[0] for desc in cursor.description]
+
+    # Process and log each row
+    for row in rows:
+        message = "; ".join(
+            f"{column}={value}" for column, value in zip(column_names, row))
+        + ";"
+        logger.info(message)
+
+    # Close the database connection
+    cursor.close()
+    db.close()
+
+
+if __name__ == "__main__":
+    main()
